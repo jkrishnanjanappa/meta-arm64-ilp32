@@ -142,6 +142,10 @@ def package_qa_get_machine_dict(d):
                         "powerpc":    (20,     0,    0,          False,         32),
                         "sh4":        (42,     0,    0,          True,          32),
                       },
+            "linux-gnuilp32" :     {
+                        "aarch64" :   (183,    0,    0,          True,          32),
+                        "aarch64_ilp32" :   (183,    0,    0,          True,          32),
+                      },
             "linux-gnux32" :       {
                         "x86_64":     (62,     0,    0,          True,          32),
                       },
