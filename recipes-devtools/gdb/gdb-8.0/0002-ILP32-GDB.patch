@@ -1,0 +1,370 @@
+From 5e5a2a68c772d59c41d4e536949ce4ba3dc9b3ea Mon Sep 17 00:00:00 2001
+From: Yao Qi <yao.qi@linaro.org>
+Date: Mon, 23 Oct 2017 14:52:28 +0100
+Subject: [PATCH 1951/1951] ILP32: GDB
+
+gdb:
+
+2017-03-06  Andrew Pinski  <apinski@cavium.com>
+	    Steve Ellcey  <sellcey@cavium.com>
+	    Yao Qi  <yao.qi@linaro.org>
+
+	* aarch64-linux-nat.c (IS_ARM32): New macro.
+	(fetch_gregs_from_thread): Use IS_ARM32 macro.
+	(store_gregs_to_thread): Ditto.
+	(fetch_fpregs_from_thread): Ditto.
+	(store_fpregs_to_thread): Ditto.
+	(ps_get_thread_area): Ditto.
+	(aarch64_linux_siginfo_fixup): Ditto.
+	* aarch64-linux-tdep.c (aarch64_linux_init_abi): Set link
+	map offsets to 32 or 64 bits.
+	* aarch64-tdep.c (aarch64_ilp32_register_type): New function.
+	(aarch64_gdbarch_init): Setup ILP32 support.
+	Make sure the gdbarches have compatible ilp32 flags.
+	Set long and ptr sizes correctly for ilp32.
+	* aarch64-tdep.h (gdbarch_tdep) <ilp32>: New field.
+
+gdb/gdbserver:
+
+2017-03-06  Andrew Pinski  <apinski@cavium.com>
+	    Steve Ellcey  <sellcey@cavium.com>
+
+	* linux-aarch64-low.c (aarch64_linux_read_description):
+
+Upstream-Status: Backport [https://sourceware.org/git/?p=binutils-gdb.git;a=shortlog;h=refs/heads/users/linaro/gdb-aarch64-ilp32]
+
+---
+ gdb/aarch64-linux-nat.c           | 25 ++++++++------
+ gdb/aarch64-linux-tdep.c          | 73 ++++++++++++++++++++++++++++++++++++---
+ gdb/aarch64-tdep.c                | 35 +++++++++++++++++--
+ gdb/aarch64-tdep.h                |  3 ++
+ gdb/gdbserver/linux-aarch64-low.c |  7 +++-
+ 5 files changed, 124 insertions(+), 19 deletions(-)
+
+diff --git a/gdb/aarch64-linux-nat.c b/gdb/aarch64-linux-nat.c
+index 4feaec39d9..59872f73ae 100644
+--- a/gdb/aarch64-linux-nat.c
++++ b/gdb/aarch64-linux-nat.c
+@@ -49,6 +49,10 @@
+ #define TRAP_HWBKPT 0x0004
+ #endif
+ 
++/* Check if we are on arm (as opposed to aarch64).  */
++#define IS_ARM32(gdbarch) \
++  (gdbarch_bfd_arch_info(gdbarch)->arch == bfd_arch_arm)
++
+ /* Per-process data.  We don't bind this to a per-inferior registry
+    because of targets like x86 GNU/Linux that need to keep track of
+    processes that aren't bound to any inferior (e.g., fork children,
+@@ -166,7 +170,7 @@ fetch_gregs_from_thread (struct regcache *regcache)
+   tid = ptid_get_lwp (regcache_get_ptid (regcache));
+ 
+   iovec.iov_base = &regs;
+-  if (gdbarch_bfd_arch_info (gdbarch)->bits_per_word == 32)
++  if (IS_ARM32 (gdbarch))
+     iovec.iov_len = 18 * 4;
+   else
+     iovec.iov_len = sizeof (regs);
+@@ -175,7 +179,7 @@ fetch_gregs_from_thread (struct regcache *regcache)
+   if (ret < 0)
+     perror_with_name (_("Unable to fetch general registers."));
+ 
+-  if (gdbarch_bfd_arch_info (gdbarch)->bits_per_word == 32)
++  if (IS_ARM32 (gdbarch))
+     aarch32_gp_regcache_supply (regcache, (uint32_t *) regs, 1);
+   else
+     {
+@@ -203,7 +207,7 @@ store_gregs_to_thread (const struct regcache *regcache)
+   tid = ptid_get_lwp (regcache_get_ptid (regcache));
+ 
+   iovec.iov_base = &regs;
+-  if (gdbarch_bfd_arch_info (gdbarch)->bits_per_word == 32)
++  if (IS_ARM32 (gdbarch))
+     iovec.iov_len = 18 * 4;
+   else
+     iovec.iov_len = sizeof (regs);
+@@ -212,7 +216,7 @@ store_gregs_to_thread (const struct regcache *regcache)
+   if (ret < 0)
+     perror_with_name (_("Unable to fetch general registers."));
+ 
+-  if (gdbarch_bfd_arch_info (gdbarch)->bits_per_word == 32)
++  if (IS_ARM32 (gdbarch))
+     aarch32_gp_regcache_collect (regcache, (uint32_t *) regs, 1);
+   else
+     {
+@@ -248,7 +252,7 @@ fetch_fpregs_from_thread (struct regcache *regcache)
+ 
+   iovec.iov_base = &regs;
+ 
+-  if (gdbarch_bfd_arch_info (gdbarch)->bits_per_word == 32)
++  if (IS_ARM32 (gdbarch))
+     {
+       iovec.iov_len = VFP_REGS_SIZE;
+ 
+@@ -295,7 +299,7 @@ store_fpregs_to_thread (const struct regcache *regcache)
+ 
+   iovec.iov_base = &regs;
+ 
+-  if (gdbarch_bfd_arch_info (gdbarch)->bits_per_word == 32)
++  if (IS_ARM32 (gdbarch))
+     {
+       iovec.iov_len = VFP_REGS_SIZE;
+ 
+@@ -328,7 +332,7 @@ store_fpregs_to_thread (const struct regcache *regcache)
+ 			      (char *) &regs.fpcr);
+     }
+ 
+-  if (gdbarch_bfd_arch_info (gdbarch)->bits_per_word == 32)
++  if (IS_ARM32 (gdbarch))
+     {
+       ret = ptrace (PTRACE_SETREGSET, tid, NT_ARM_VFP, &iovec);
+       if (ret < 0)
+@@ -460,10 +464,9 @@ ps_err_e
+ ps_get_thread_area (struct ps_prochandle *ph,
+ 		    lwpid_t lwpid, int idx, void **base)
+ {
+-  int is_64bit_p
+-    = (gdbarch_bfd_arch_info (target_gdbarch ())->bits_per_word == 64);
++  int is_aarch64_p = !IS_ARM32 (target_gdbarch ());
+ 
+-  return aarch64_ps_get_thread_area (ph, lwpid, idx, base, is_64bit_p);
++  return aarch64_ps_get_thread_area (ph, lwpid, idx, base, is_aarch64_p);
+ }
+ 
+ 
+@@ -517,7 +520,7 @@ aarch64_linux_siginfo_fixup (siginfo_t *native, gdb_byte *inf, int direction)
+ 
+   /* Is the inferior 32-bit?  If so, then do fixup the siginfo
+      object.  */
+-  if (gdbarch_bfd_arch_info (gdbarch)->bits_per_word == 32)
++  if (IS_ARM32 (gdbarch))
+     {
+       if (direction == 0)
+ 	aarch64_compat_siginfo_from_siginfo ((struct compat_siginfo *) inf,
+diff --git a/gdb/aarch64-linux-tdep.c b/gdb/aarch64-linux-tdep.c
+index b6052bafd6..9963412c79 100644
+--- a/gdb/aarch64-linux-tdep.c
++++ b/gdb/aarch64-linux-tdep.c
+@@ -131,13 +131,13 @@
+   ucontext.uc_mcontext.  */
+ 
+ /* These magic numbers need to reflect the layout of the kernel
+-   defined struct rt_sigframe and ucontext.  */
++   defined struct rt_sigframe and ucontext in LP64 mode.  */
+ #define AARCH64_SIGCONTEXT_REG_SIZE             8
+ #define AARCH64_RT_SIGFRAME_UCONTEXT_OFFSET     128
+ #define AARCH64_UCONTEXT_SIGCONTEXT_OFFSET      176
+ #define AARCH64_SIGCONTEXT_XO_OFFSET            8
+ 
+-/* Implement the "init" method of struct tramp_frame.  */
++/* Implement the "init" method of struct tramp_frame for LP64.  */
+ 
+ static void
+ aarch64_linux_sigframe_init (const struct tramp_frame *self,
+@@ -186,6 +186,62 @@ static const struct tramp_frame aarch64_linux_rt_sigframe =
+   aarch64_linux_sigframe_init
+ };
+ 
++/* These magic numbers need to reflect the layout of the kernel
++   defined struct rt_sigframe and ucontext in LP64 mode.  */
++#define AARCH64_ILP32_SIGCONTEXT_REG_SIZE             8
++#define AARCH64_ILP32_RT_SIGFRAME_UCONTEXT_OFFSET     128
++#define AARCH64_ILP32_UCONTEXT_SIGCONTEXT_OFFSET      160
++#define AARCH64_ILP32_SIGCONTEXT_XO_OFFSET            8
++
++/* Implement the "init" method of struct tramp_frame for ILP32.  */
++
++static void
++aarch64_ilp32_linux_sigframe_init (const struct tramp_frame *self,
++				   struct frame_info *this_frame,
++				   struct trad_frame_cache *this_cache,
++				   CORE_ADDR func)
++{
++  CORE_ADDR sp = get_frame_register_unsigned (this_frame, AARCH64_SP_REGNUM);
++  CORE_ADDR sigcontext_addr =
++    sp
++    + AARCH64_RT_SIGFRAME_UCONTEXT_OFFSET
++    + AARCH64_ILP32_UCONTEXT_SIGCONTEXT_OFFSET;
++  int i;
++
++  for (i = 0; i < 31; i++)
++    {
++      trad_frame_set_reg_addr (this_cache,
++			       AARCH64_X0_REGNUM + i,
++			       sigcontext_addr + AARCH64_SIGCONTEXT_XO_OFFSET
++			       + i * AARCH64_SIGCONTEXT_REG_SIZE);
++    }
++  trad_frame_set_reg_addr (this_cache, AARCH64_SP_REGNUM,
++			   sigcontext_addr + AARCH64_SIGCONTEXT_XO_OFFSET
++			     + 31 * AARCH64_SIGCONTEXT_REG_SIZE);
++  trad_frame_set_reg_addr (this_cache, AARCH64_PC_REGNUM,
++			   sigcontext_addr + AARCH64_SIGCONTEXT_XO_OFFSET
++			     + 32 * AARCH64_SIGCONTEXT_REG_SIZE);
++
++  trad_frame_set_id (this_cache, frame_id_build (sp, func));
++}
++
++static const struct tramp_frame aarch64_ilp32_linux_rt_sigframe =
++{
++  SIGTRAMP_FRAME,
++  4,
++  {
++    /* movz x8, 0x8b (S=1,o=10,h=0,i=0x8b,r=8)
++       Soo1 0010 1hhi iiii iiii iiii iiir rrrr  */
++    {0xd2801168, -1},
++
++    /* svc  0x0      (o=0, l=1)
++       1101 0100 oooi iiii iiii iiii iii0 00ll  */
++    {0xd4000001, -1},
++    {TRAMP_SENTINEL_INSN, -1}
++  },
++  aarch64_ilp32_linux_sigframe_init
++};
++
+ /* Register maps.  */
+ 
+ static const struct regcache_map_entry aarch64_linux_gregmap[] =
+@@ -1016,8 +1072,12 @@ aarch64_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
+ 
+   linux_init_abi (info, gdbarch);
+ 
+-  set_solib_svr4_fetch_link_map_offsets (gdbarch,
+-					 svr4_lp64_fetch_link_map_offsets);
++  if (tdep->ilp32)
++    set_solib_svr4_fetch_link_map_offsets (gdbarch,
++					   svr4_ilp32_fetch_link_map_offsets);
++  else
++    set_solib_svr4_fetch_link_map_offsets (gdbarch,
++					   svr4_lp64_fetch_link_map_offsets);
+ 
+   /* Enable TLS support.  */
+   set_gdbarch_fetch_tls_load_module_address (gdbarch,
+@@ -1027,7 +1087,10 @@ aarch64_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
+   set_gdbarch_skip_trampoline_code (gdbarch, find_solib_trampoline_target);
+   set_gdbarch_skip_solib_resolver (gdbarch, glibc_skip_solib_resolver);
+ 
+-  tramp_frame_prepend_unwinder (gdbarch, &aarch64_linux_rt_sigframe);
++  if (tdep->ilp32)
++    tramp_frame_prepend_unwinder (gdbarch, &aarch64_ilp32_linux_rt_sigframe);
++  else
++    tramp_frame_prepend_unwinder (gdbarch, &aarch64_linux_rt_sigframe);
+ 
+   /* Enable longjmp.  */
+   tdep->jb_pc = 11;
+diff --git a/gdb/aarch64-tdep.c b/gdb/aarch64-tdep.c
+index cbab1a50ee..b28653af90 100644
+--- a/gdb/aarch64-tdep.c
++++ b/gdb/aarch64-tdep.c
+@@ -2086,6 +2086,22 @@ aarch64_gen_return_address (struct gdbarch *gdbarch,
+ }
+ 
+ 
++/* Implement the "register_type" gdbarch method.
++   Adjust the register type of $PC and $SP on ILP32.  */
++
++static struct type *
++aarch64_ilp32_register_type (struct gdbarch *gdbarch, int regnum)
++{
++  struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
++
++  gdb_assert (tdep->ilp32);
++
++  if (regnum == AARCH64_SP_REGNUM || regnum == AARCH64_PC_REGNUM)
++    return builtin_type (gdbarch)->builtin_uint64;
++  else
++    return tdesc_register_type (gdbarch, regnum);
++}
++
+ /* Return the pseudo register name corresponding to register regnum.  */
+ 
+ static const char *
+@@ -2848,6 +2864,10 @@ aarch64_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
+   const struct tdesc_feature *feature;
+   int num_regs = 0;
+   int num_pseudo_regs = 0;
++  bool ilp32 = false;
++
++  if (info.bfd_arch_info->mach == bfd_mach_aarch64_ilp32)
++    ilp32 = true;
+ 
+   /* Ensure we always have a target descriptor.  */
+   if (!tdesc_has_registers (tdesc))
+@@ -2905,6 +2925,9 @@ aarch64_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
+        best_arch != NULL;
+        best_arch = gdbarch_list_lookup_by_info (best_arch->next, &info))
+     {
++      /* ILP32 and LP64 are incompatible. */
++      if (gdbarch_tdep (arches->gdbarch)->ilp32 != ilp32)
++	continue;
+       /* Found a match.  */
+       break;
+     }
+@@ -2923,6 +2946,7 @@ aarch64_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
+   tdep->lowest_pc = 0x20;
+   tdep->jb_pc = -1;		/* Longjump support not enabled by default.  */
+   tdep->jb_elt_size = 8;
++  tdep->ilp32 = ilp32;
+ 
+   set_gdbarch_push_dummy_call (gdbarch, aarch64_push_dummy_call);
+   set_gdbarch_frame_align (gdbarch, aarch64_frame_align);
+@@ -2965,9 +2989,9 @@ aarch64_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
+   set_gdbarch_float_bit (gdbarch, 32);
+   set_gdbarch_double_bit (gdbarch, 64);
+   set_gdbarch_long_double_bit (gdbarch, 128);
+-  set_gdbarch_long_bit (gdbarch, 64);
++  set_gdbarch_long_bit (gdbarch, ilp32 ? 32 : 64);
+   set_gdbarch_long_long_bit (gdbarch, 64);
+-  set_gdbarch_ptr_bit (gdbarch, 64);
++  set_gdbarch_ptr_bit (gdbarch, ilp32 ? 32 : 64);
+   set_gdbarch_char_signed (gdbarch, 0);
+   set_gdbarch_wchar_signed (gdbarch, 0);
+   set_gdbarch_float_format (gdbarch, floatformats_ieee_single);
+@@ -3010,6 +3034,13 @@ aarch64_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
+ 
+   tdesc_use_registers (gdbarch, tdesc, tdesc_data);
+ 
++  if (ilp32)
++    {
++      /* Override tdesc_register_type to adjust the types of $PC and
++	 $SP in ILP32.  */
++      set_gdbarch_register_type (gdbarch, aarch64_ilp32_register_type);
++    }
++
+   /* Add standard register aliases.  */
+   for (i = 0; i < ARRAY_SIZE (aarch64_register_aliases); i++)
+     user_reg_add (gdbarch, aarch64_register_aliases[i].name,
+diff --git a/gdb/aarch64-tdep.h b/gdb/aarch64-tdep.h
+index 85c6a97a9b..87d36b60e4 100644
+--- a/gdb/aarch64-tdep.h
++++ b/gdb/aarch64-tdep.h
+@@ -97,6 +97,9 @@ struct gdbarch_tdep
+ 
+   /* syscall record.  */
+   int (*aarch64_syscall_record) (struct regcache *regcache, unsigned long svc_number);
++  /* If this is ILP32 or LP64.  */
++  bool ilp32;
++
+ };
+ 
+ extern struct target_desc *tdesc_aarch64;
+diff --git a/gdb/gdbserver/linux-aarch64-low.c b/gdb/gdbserver/linux-aarch64-low.c
+index 6d5c4e5423..cd5ed50b19 100644
+--- a/gdb/gdbserver/linux-aarch64-low.c
++++ b/gdb/gdbserver/linux-aarch64-low.c
+@@ -492,7 +492,12 @@ aarch64_linux_read_description (void)
+ 
+   is_elf64 = linux_pid_exe_is_elf_64_file (tid, &machine);
+ 
+-  if (is_elf64)
++  /* There are problems with ptrace when gdbserver is 32 bits and the
++     program being debugged is 64 bits.  */
++  if (sizeof (void *) == 4 && is_elf64)
++    error (_("Can't debug 64-bit process with 32-bit GDBserver"));
++
++  if (machine == EM_AARCH64)
+     return tdesc_aarch64;
+   else
+     return tdesc_arm_with_neon;
+-- 
+2.11.1
+

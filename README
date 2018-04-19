@@ -1,0 +1,56 @@
+This README file contains information on the contents of the meta-arm64-ilp32.
+Please see the corresponding sections below for details.
+
+
+Dependencies
+============
+
+This layer depends on:
+
+  URI: git://git.yoctoproject.org/poky
+  branch: rocko
+ 
+Source code
+===========
+
+https://github.com/MontaVista-OpenSourceTechnology/meta-arm64-ilp32
+
+
+Maintenance
+===========
+
+Maintainers:
+    jpuhlman@mvista.com
+
+
+Contributing
+============
+
+Contributions and patches can be sent to the MontaVista  mailing
+list: jpuhlman@mvista.com"
+
+When sending patches please take a look at the contribution guide available
+here: https://wiki.yoctoproject.org/wiki/Contribution_Guidelines
+
+example:
+git send-email -1 -M --to jpuhlman@mvista.com  --subject-prefix=meta-arm64-ilp32][PATCH
+
+
+Table of Contents
+=================
+
+  I. Adding the meta-arm64-ilp32 layer to your build
+ II. Misc
+
+
+I. Adding the meta-montavista-cgx layer to your build
+=================================================
+
+In order to use this layer, you need to make the build system aware of
+it.
+
+Assuming the meta-arm64-ilp32 layer exists at the top-level of your
+yocto build tree, you can add it to the build system by adding the
+location of the meta-arm64-ilp32 layer to bblayers.conf, along with any
+other layers needed. Adapt the below list to proper format.
+

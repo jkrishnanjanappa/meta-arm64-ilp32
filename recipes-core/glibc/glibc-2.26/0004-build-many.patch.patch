@@ -1,0 +1,36 @@
+From ae14fd91576ffef4804dae06516b941c537fa1d0 Mon Sep 17 00:00:00 2001
+From: Yury Norov <ynorov@caviumnetworks.com>
+Date: Tue, 18 Jul 2017 02:16:11 +0300
+Subject: [PATCH 4/8] build-many.patch
+
+Upstream-Status: Backport [https://github.com/norov/glibc/tree/ilp32-2.26]
+
+---
+ ChangeLog                    | 4 ++++
+ scripts/build-many-glibcs.py | 8 ++++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/scripts/build-many-glibcs.py b/scripts/build-many-glibcs.py
+index 5fbb564a14..f950852cbb 100755
+--- a/scripts/build-many-glibcs.py
++++ b/scripts/build-many-glibcs.py
+@@ -161,8 +161,16 @@ class Context(object):
+         """Add all known glibc build configurations."""
+         self.add_config(arch='aarch64',
+                         os_name='linux-gnu')
++        self.add_config(arch='aarch64',
++                        os_name='linux-gnu',
++                        variant='ilp32',
++                        gcc_cfg=['--with-multilib-list=ilp32'])
+         self.add_config(arch='aarch64_be',
+                         os_name='linux-gnu')
++        self.add_config(arch='aarch64_be',
++                        os_name='linux-gnu',
++                        variant='ilp32',
++                        gcc_cfg=['--with-multilib-list=ilp32'])
+         self.add_config(arch='alpha',
+                         os_name='linux-gnu')
+         self.add_config(arch='arm',
+-- 
+2.11.1
+

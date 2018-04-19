@@ -1,0 +1,232 @@
+From aac1860e0c2b7fac2f6acbe116824fed79d7dbaf Mon Sep 17 00:00:00 2001
+From: Yury Norov <ynorov@caviumnetworks.com>
+Date: Tue, 18 Jul 2017 02:13:44 +0300
+Subject: [PATCH 3/8] math.patch
+
+Upstream-Status: Backport [https://github.com/norov/glibc/tree/ilp32-2.26]
+
+---
+ ChangeLog                          | 23 +++++++++++++++++++++++
+ sysdeps/aarch64/fpu/math_private.h | 14 ++++++++++++++
+ sysdeps/aarch64/fpu/s_llrint.c     |  1 +
+ sysdeps/aarch64/fpu/s_llrintf.c    |  3 ++-
+ sysdeps/aarch64/fpu/s_llround.c    |  1 +
+ sysdeps/aarch64/fpu/s_llroundf.c   |  3 ++-
+ sysdeps/aarch64/fpu/s_lrint.c      | 36 ++++++++++++++++++++++++++++++++----
+ sysdeps/aarch64/fpu/s_lrintf.c     |  2 +-
+ sysdeps/aarch64/fpu/s_lround.c     | 27 +++++++++++++++++++++++----
+ sysdeps/aarch64/fpu/s_lroundf.c    |  2 +-
+ 10 files changed, 100 insertions(+), 12 deletions(-)
+
+diff --git a/sysdeps/aarch64/fpu/math_private.h b/sysdeps/aarch64/fpu/math_private.h
+index 807111ea5a..d5a141d5c5 100644
+--- a/sysdeps/aarch64/fpu/math_private.h
++++ b/sysdeps/aarch64/fpu/math_private.h
+@@ -134,6 +134,20 @@ libc_fetestexcept_aarch64 (int ex)
+ #define libc_fetestexceptl libc_fetestexcept_aarch64
+ 
+ static __always_inline void
++libc_feclearexcept_aarch64 (int ex)
++{
++  fpu_fpsr_t fpsr;
++
++  _FPU_GETFPSR (fpsr);
++  fpsr &= ~((fpu_fpsr_t) ex);
++  _FPU_SETFPSR (fpsr);
++}
++
++#define libc_feclearexcept  libc_feclearexcept_aarch64
++#define libc_feclearexceptf libc_feclearexcept_aarch64
++#define libc_feclearexceptl libc_feclearexcept_aarch64
++
++static __always_inline void
+ libc_fesetenv_aarch64 (const fenv_t *envp)
+ {
+   fpu_control_t fpcr;
+diff --git a/sysdeps/aarch64/fpu/s_llrint.c b/sysdeps/aarch64/fpu/s_llrint.c
+index c0d0d0e879..57821c02f8 100644
+--- a/sysdeps/aarch64/fpu/s_llrint.c
++++ b/sysdeps/aarch64/fpu/s_llrint.c
+@@ -18,4 +18,5 @@
+ 
+ #define FUNC llrint
+ #define OTYPE long long int
++#define OREG_SIZE 64
+ #include <s_lrint.c>
+diff --git a/sysdeps/aarch64/fpu/s_llrintf.c b/sysdeps/aarch64/fpu/s_llrintf.c
+index 67724c6d47..98ed4f864e 100644
+--- a/sysdeps/aarch64/fpu/s_llrintf.c
++++ b/sysdeps/aarch64/fpu/s_llrintf.c
+@@ -18,6 +18,7 @@
+ 
+ #define FUNC llrintf
+ #define ITYPE float
+-#define IREGS "s"
++#define IREG_SIZE 32
+ #define OTYPE long long int
++#define OREG_SIZE 64
+ #include <s_lrint.c>
+diff --git a/sysdeps/aarch64/fpu/s_llround.c b/sysdeps/aarch64/fpu/s_llround.c
+index ed4b192d5c..ef7aedf36b 100644
+--- a/sysdeps/aarch64/fpu/s_llround.c
++++ b/sysdeps/aarch64/fpu/s_llround.c
+@@ -18,4 +18,5 @@
+ 
+ #define FUNC llround
+ #define OTYPE long long int
++#define OREG_SIZE 64
+ #include <s_lround.c>
+diff --git a/sysdeps/aarch64/fpu/s_llroundf.c b/sysdeps/aarch64/fpu/s_llroundf.c
+index 360ce8b4c5..294f0f4761 100644
+--- a/sysdeps/aarch64/fpu/s_llroundf.c
++++ b/sysdeps/aarch64/fpu/s_llroundf.c
+@@ -18,6 +18,7 @@
+ 
+ #define FUNC llroundf
+ #define ITYPE float
+-#define IREGS "s"
++#define IREG_SIZE 32
+ #define OTYPE long long int
++#define OREG_SIZE 64
+ #include <s_lround.c>
+diff --git a/sysdeps/aarch64/fpu/s_lrint.c b/sysdeps/aarch64/fpu/s_lrint.c
+index 8c61a039bf..9f90385af5 100644
+--- a/sysdeps/aarch64/fpu/s_lrint.c
++++ b/sysdeps/aarch64/fpu/s_lrint.c
+@@ -16,7 +16,9 @@
+    License along with the GNU C Library; if not, see
+    <http://www.gnu.org/licenses/>.  */
+ 
++#include <math_private.h>
+ #include <math.h>
++#include <fenv.h>
+ 
+ #ifndef FUNC
+ # define FUNC lrint
+@@ -24,18 +26,37 @@
+ 
+ #ifndef ITYPE
+ # define ITYPE double
+-# define IREGS "d"
++# define IREG_SIZE 64
+ #else
+-# ifndef IREGS
+-#  error IREGS not defined
++# ifndef IREG_SIZE
++#  error IREG_SIZE not defined
+ # endif
+ #endif
+ 
+ #ifndef OTYPE
+ # define OTYPE long int
++# ifdef __ILP32__
++#  define OREG_SIZE 32
++# else
++#  define OREG_SIZE 64
++# endif
++#else
++# ifndef OREG_SIZE
++#  error OREG_SIZE not defined
++# endif
+ #endif
+ 
+-#define OREGS "x"
++#if IREG_SIZE == 32
++# define IREGS "s"
++#else
++# define IREGS "d"
++#endif
++
++#if OREG_SIZE == 32
++# define OREGS "w"
++#else
++# define OREGS "x"
++#endif
+ 
+ #define __CONCATX(a,b) __CONCAT(a,b)
+ 
+@@ -47,6 +68,13 @@ __CONCATX(__,FUNC) (ITYPE x)
+   asm ( "frintx" "\t%" IREGS "1, %" IREGS "2\n\t"
+         "fcvtzs" "\t%" OREGS "0, %" IREGS "1"
+         : "=r" (result), "=w" (temp) : "w" (x) );
++#if OREG_SIZE == 32
++  /* The rounding step may set FE_INEXEXACT and converting to a 32 bit
++     value may set FE_INVALID.  We do not want FE_INEXACT set when
++     FE_INVALID has been set.  */
++  if (libc_fetestexcept_aarch64 (FE_INVALID))
++    libc_feclearexcept_aarch64 (FE_INEXACT);
++#endif
+   return result;
+ }
+ 
+diff --git a/sysdeps/aarch64/fpu/s_lrintf.c b/sysdeps/aarch64/fpu/s_lrintf.c
+index a995e4b96f..2e73271497 100644
+--- a/sysdeps/aarch64/fpu/s_lrintf.c
++++ b/sysdeps/aarch64/fpu/s_lrintf.c
+@@ -18,5 +18,5 @@
+ 
+ #define FUNC lrintf
+ #define ITYPE float
+-#define IREGS "s"
++#define IREG_SIZE 32
+ #include <s_lrint.c>
+diff --git a/sysdeps/aarch64/fpu/s_lround.c b/sysdeps/aarch64/fpu/s_lround.c
+index 9be9e7fb0f..1f77d82e33 100644
+--- a/sysdeps/aarch64/fpu/s_lround.c
++++ b/sysdeps/aarch64/fpu/s_lround.c
+@@ -24,18 +24,37 @@
+ 
+ #ifndef ITYPE
+ # define ITYPE double
+-# define IREGS "d"
++# define IREG_SIZE 64
+ #else
+-# ifndef IREGS
+-#  error IREGS not defined
++# ifndef IREG_SIZE
++#  error IREG_SIZE not defined
+ # endif
+ #endif
+ 
+ #ifndef OTYPE
+ # define OTYPE long int
++# ifdef __ILP32__
++#  define OREG_SIZE 32
++# else
++#  define OREG_SIZE 64
++# endif
++#else
++# ifndef OREG_SIZE
++#  error OREG_SIZE not defined
++# endif
++#endif
++
++#if IREG_SIZE == 32
++# define IREGS "s"
++#else
++# define IREGS "d"
+ #endif
+ 
+-#define OREGS "x"
++#if OREG_SIZE == 32
++# define OREGS "w"
++#else
++# define OREGS "x"
++#endif
+ 
+ #define __CONCATX(a,b) __CONCAT(a,b)
+ 
+diff --git a/sysdeps/aarch64/fpu/s_lroundf.c b/sysdeps/aarch64/fpu/s_lroundf.c
+index 4a066d4816..b30ddb6dbb 100644
+--- a/sysdeps/aarch64/fpu/s_lroundf.c
++++ b/sysdeps/aarch64/fpu/s_lroundf.c
+@@ -18,5 +18,5 @@
+ 
+ #define FUNC lroundf
+ #define ITYPE float
+-#define IREGS "s"
++#define IREG_SIZE 32
+ #include <s_lround.c>
+-- 
+2.11.1
+

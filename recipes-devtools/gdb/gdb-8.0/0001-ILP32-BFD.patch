@@ -1,0 +1,165 @@
+From 2c5e2ba3ced851a18c488c630abd00ca99523bbd Mon Sep 17 00:00:00 2001
+From: Yao Qi <yao.qi@linaro.org>
+Date: Mon, 23 Oct 2017 14:50:18 +0100
+Subject: [PATCH 1950/1951] ILP32: BFD
+
+bfd:
+
+2017-03-06  Andrew Pinski  <apinski@cavium.com>
+            Steve Ellcey  <sellcey@cavium.com>
+
+	* cpu-aarch64.c (compatible):
+	Don't reject different ILP32/LP64 ABI's here.
+	* elfnn-aarch64.c (elfNN_aarch64_merge_private_bfd_data):
+	Add an error message on why endianess is rejected.
+	Reject different ILP32/LP64 ABI settings.
+	* elfxx-aarch64.c (_bfd_aarch64_elf_grok_prstatus): Handle
+	size and offset of ILP32 executables.
+	(_bfd_aarch64_elf_grok_psinfo):  Ditto.
+
+Upstream-Status: Backport [https://sourceware.org/git/?p=binutils-gdb.git;a=shortlog;h=refs/heads/users/linaro/gdb-aarch64-ilp32]
+
+---
+ bfd/cpu-aarch64.c   |  7 ++-----
+ bfd/elfnn-aarch64.c | 17 ++++++++++++++++-
+ bfd/elfxx-aarch64.c | 43 ++++++++++++++++++++++++++++++++++++++-----
+ 3 files changed, 56 insertions(+), 11 deletions(-)
+
+diff --git a/bfd/cpu-aarch64.c b/bfd/cpu-aarch64.c
+index 7cb81f343c..63fba48a9c 100644
+--- a/bfd/cpu-aarch64.c
++++ b/bfd/cpu-aarch64.c
+@@ -25,7 +25,8 @@
+ 
+ /* This routine is provided two arch_infos and works out which Aarch64
+    machine which would be compatible with both and returns a pointer
+-   to its info structure.  */
++   to its info structure.  ABI (ilp32 vs. lp64) and endianness compatibility
++   are checked in elfNN_aarch64_merge_private_bfd_data.  */
+ 
+ static const bfd_arch_info_type *
+ compatible (const bfd_arch_info_type * a, const bfd_arch_info_type * b)
+@@ -38,10 +39,6 @@ compatible (const bfd_arch_info_type * a, const bfd_arch_info_type * b)
+   if (a->mach == b->mach)
+     return a;
+ 
+-  /* Don't allow mixing ilp32 with lp64.  */
+-  if ((a->mach & bfd_mach_aarch64_ilp32) != (b->mach & bfd_mach_aarch64_ilp32))
+-    return NULL;
+-
+   /* Otherwise if either a or b is the 'default' machine
+      then it can be polymorphed into the other.  */
+   if (a->the_default)
+diff --git a/bfd/elfnn-aarch64.c b/bfd/elfnn-aarch64.c
+index 23c881c51d..1eede2afe8 100644
+--- a/bfd/elfnn-aarch64.c
++++ b/bfd/elfnn-aarch64.c
+@@ -6591,11 +6591,26 @@ elfNN_aarch64_merge_private_bfd_data (bfd *ibfd, struct bfd_link_info *info)
+ 
+   /* Check if we have the same endianess.  */
+   if (!_bfd_generic_verify_endian_match (ibfd, info))
+-    return FALSE;
++    {
++      (*_bfd_error_handler)
++	(_("%B: endianness incompatible with that of the selected emulation"),
++	   ibfd);
++      return FALSE;
++    }
+ 
+   if (!is_aarch64_elf (ibfd) || !is_aarch64_elf (obfd))
+     return TRUE;
+ 
++  /* Don't allow mixing ilp32 with lp64.  */
++  if ((bfd_get_arch_info (ibfd)->mach & bfd_mach_aarch64_ilp32)
++      != (bfd_get_arch_info (obfd)->mach & bfd_mach_aarch64_ilp32))
++    {
++      (*_bfd_error_handler)
++	(_("%B: ABI is incompatible with that of the selected emulation: \"%s\" != \"%s\""),
++	 ibfd, bfd_get_target (ibfd), bfd_get_target (obfd));
++      return FALSE;
++    }
++
+   /* The input BFD must have had its flags initialised.  */
+   /* The following seems bogus to me -- The flags are initialized in
+      the assembler but I don't think an elf_flags_init field is
+diff --git a/bfd/elfxx-aarch64.c b/bfd/elfxx-aarch64.c
+index 10ee5fa99e..f52e0f117c 100644
+--- a/bfd/elfxx-aarch64.c
++++ b/bfd/elfxx-aarch64.c
+@@ -548,7 +548,18 @@ _bfd_aarch64_elf_add_symbol_hook (bfd *abfd, struct bfd_link_info *info,
+   return TRUE;
+ }
+ 
+-/* Support for core dump NOTE sections.  */
++/* Support for core dump NOTE sections.
++
++   note->descsz should be the size of elf_prstatus, defined in 
++   usr/include/linux/elfcore.h.  The size is 352 in ILP32 mode
++   and 392 in LP64 mode. elf_tdata (abfd)->core->signal is set from the
++   pr_cursig field of elf_prstatus which is at an offset of 12 in the
++   elf_prstatus structure in both ILP32 and LP64 modes.
++
++   elf_tdata (abfd)->core->lwpid is set from the pr_pid field of the
++   elf_prstatus structure.  It has an offset of 24 in ILP32 mode and
++   32 in LP64 mode due to two long fields in the structure that are in
++   front of the pr_pid field.  */
+ 
+ bfd_boolean
+ _bfd_aarch64_elf_grok_prstatus (bfd *abfd, Elf_Internal_Note *note)
+@@ -561,14 +572,27 @@ _bfd_aarch64_elf_grok_prstatus (bfd *abfd, Elf_Internal_Note *note)
+       default:
+ 	return FALSE;
+ 
+-      case 392:		/* sizeof(struct elf_prstatus) on Linux/arm64.  */
++      case 352:	/* sizeof(struct elf_prstatus) on Linux/aarch64 ilp32.  */
++	/* pr_cursig */
++	elf_tdata (abfd)->core->signal
++	  = bfd_get_16 (abfd, note->descdata + 12);
++
++	/* pr_pid */
++	elf_tdata (abfd)->core->lwpid = bfd_get_32 (abfd, note->descdata + 24);
++
++	/* pr_reg */
++	offset = 72;
++	size = 272;
++
++	break;
++
++      case 392:	/* sizeof(struct elf_prstatus) on Linux/aarch64.  */
+ 	/* pr_cursig */
+ 	elf_tdata (abfd)->core->signal
+ 	  = bfd_get_16 (abfd, note->descdata + 12);
+ 
+ 	/* pr_pid */
+-	elf_tdata (abfd)->core->lwpid
+-	  = bfd_get_32 (abfd, note->descdata + 32);
++	elf_tdata (abfd)->core->lwpid = bfd_get_32 (abfd, note->descdata + 32);
+ 
+ 	/* pr_reg */
+ 	offset = 112;
+@@ -590,12 +614,21 @@ _bfd_aarch64_elf_grok_psinfo (bfd *abfd, Elf_Internal_Note *note)
+     default:
+       return FALSE;
+ 
+-    case 136:        /* This is sizeof(struct elf_prpsinfo) on Linux/aarch64.  */
++    case 124:         /* sizeof(struct elf_prpsinfo) on Linux/aarch64 ilp32.  */
++      elf_tdata (abfd)->core->pid = bfd_get_32 (abfd, note->descdata + 12);
++      elf_tdata (abfd)->core->program
++	= _bfd_elfcore_strndup (abfd, note->descdata + 28, 16);
++      elf_tdata (abfd)->core->command
++	= _bfd_elfcore_strndup (abfd, note->descdata + 44, 80);
++      break;
++
++    case 136:        /* sizeof(struct elf_prpsinfo) on Linux/aarch64.  */
+       elf_tdata (abfd)->core->pid = bfd_get_32 (abfd, note->descdata + 24);
+       elf_tdata (abfd)->core->program
+ 	= _bfd_elfcore_strndup (abfd, note->descdata + 40, 16);
+       elf_tdata (abfd)->core->command
+ 	= _bfd_elfcore_strndup (abfd, note->descdata + 56, 80);
++      break;
+     }
+ 
+   /* Note that for some reason, a spurious space is tacked
+-- 
+2.11.1
+

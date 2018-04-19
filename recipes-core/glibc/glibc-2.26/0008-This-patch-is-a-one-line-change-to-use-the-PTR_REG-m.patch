@@ -1,0 +1,42 @@
+From 84c0934e48dc6db1c370d8ee4fb93e0744f061b3 Mon Sep 17 00:00:00 2001
+From: Yury Norov <ynorov@caviumnetworks.com>
+Date: Wed, 23 Aug 2017 12:10:20 +0300
+Subject: [PATCH 8/8] This patch is a one line change to use the PTR_REG macro
+ in a cmp instruction in dl-tlsdesc.S.  It only causes a problem in ILP32 mode
+ but I would like to submit it and check it in now so that the source code is
+ consistent in its use of PTR_REG.  Tested in ILP32 and LP64 modes on aarch64.
+
+I think this counts as an 'obvious' fix, so I will check it in later today
+if there are no objections.
+
+Steve Ellcey
+sellcey@cavium.com
+
+2017-08-22  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+            Steve Ellcey  <sellcey@caviumnetworks.com>
+
+	* sysdeps/aarch64/dl-tlsdesc.S (_dl_tlsdesc_dynamic):
+	Use PTR_REG macro in cmp instruction.
+
+Upstream-Status: Backport [https://github.com/norov/glibc/tree/ilp32-2.26]
+
+---
+ sysdeps/aarch64/dl-tlsdesc.S | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/sysdeps/aarch64/dl-tlsdesc.S b/sysdeps/aarch64/dl-tlsdesc.S
+index a70cfd513c..c51b7712fd 100644
+--- a/sysdeps/aarch64/dl-tlsdesc.S
++++ b/sysdeps/aarch64/dl-tlsdesc.S
+@@ -208,7 +208,7 @@ _dl_tlsdesc_dynamic:
+ 	ldr	PTR_REG (2), [x1,#TLSDESC_MODID]
+ 	add	PTR_REG (0), PTR_REG (0), PTR_REG (2), lsl #(PTR_LOG_SIZE + 1)
+ 	ldr	PTR_REG (0), [x0] /* Load val member of DTV entry.  */
+-	cmp	x0, #TLS_DTV_UNALLOCATED
++	cmp     PTR_REG (0), #TLS_DTV_UNALLOCATED
+ 	b.eq	2f
+ 	ldr	PTR_REG (1), [x1,#TLSDESC_MODOFF]
+ 	add	PTR_REG (0), PTR_REG (0), PTR_REG (1)
+-- 
+2.11.1
+

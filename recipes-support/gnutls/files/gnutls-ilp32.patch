@@ -1,0 +1,19 @@
+
+Upstream-Status: Backport [https://gitlab.com/gnutls/gnutls/commit/12897fd34dbd37a77e4adb60750344e451c44679]
+
+--- gnutls28-3.5.8.orig/configure.ac
++++ gnutls28-3.5.8/configure.ac
+@@ -157,6 +157,12 @@ if test "$use_accel" != "no"; then
+ case $host_cpu in
+   armv8 | aarch64)
+       hw_accel="aarch64"
++      case $host_os in
++        *ilp32)
++         dnl ILP32 not supported in assembler yet
++         hw_accel="none"
++        ;;
++      esac
+   ;;
+   i?86 | x86_64 | amd64)
+       AC_CHECK_HEADERS(cpuid.h)
+

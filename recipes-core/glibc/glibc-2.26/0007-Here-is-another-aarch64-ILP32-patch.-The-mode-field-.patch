@@ -1,0 +1,49 @@
+From b70812f2f069ed7da2a954e47fffbec1e7bfa979 Mon Sep 17 00:00:00 2001
+From: Yury Norov <ynorov@caviumnetworks.com>
+Date: Wed, 23 Aug 2017 12:06:30 +0300
+Subject: [PATCH 7/8] =?UTF-8?q?Here=20is=20another=20aarch64=20ILP32=20pat?=
+ =?UTF-8?q?ch.=C2=A0=C2=A0The=20mode=20field=20in=20ipc=5Fperm=20in=20ILP3?=
+ =?UTF-8?q?2=20should=20be=20a=2016=20bit=20field,=20not=20a=2032=20bit=20?=
+ =?UTF-8?q?one.=C2=A0=C2=A0This=20was=20out-of-sync=20with=20what=20the=20?=
+ =?UTF-8?q?kernel=20had.=C2=A0=C2=A0This=20was=20causing=20sysvipc/test-sy?=
+ =?UTF-8?q?svsem=20to=20fail=20in=20ILP32=20mode.=20This=20change=20is=20o?=
+ =?UTF-8?q?nly=20needed=20for=20ILP32=20so=20it=20doesn't=20need=20to=20go?=
+ =?UTF-8?q?=20in=20until=20we=20add=20that=20ABI=20but=20I=20am=20sending?=
+ =?UTF-8?q?=20out=20for=20review=20and=20comments.?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+2017-08-22  Yury Norov  <ynorov@caviumnetworks.com>
+            Steve Ellcey  <sellcey@cavium.com>
+
+        * sysdeps/unix/sysv/linux/aarch64/bits/ipc.h (ipc_perm):
+        Ifdef and pad the mode field for ILP32.
+
+Upstream-Status: Backport [https://github.com/norov/glibc/tree/ilp32-2.26]
+
+---
+ sysdeps/unix/sysv/linux/aarch64/bits/ipc.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/sysdeps/unix/sysv/linux/aarch64/bits/ipc.h b/sysdeps/unix/sysv/linux/aarch64/bits/ipc.h
+index cd1f06e370..217e05f286 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/bits/ipc.h
++++ b/sysdeps/unix/sysv/linux/aarch64/bits/ipc.h
+@@ -46,7 +46,13 @@ struct ipc_perm
+     __gid_t gid;			/* Owner's group ID.  */
+     __uid_t cuid;			/* Creator's user ID.  */
+     __gid_t cgid;			/* Creator's group ID.  */
++#ifdef __LP64
+     unsigned int mode;			/* Read/write permission.  */
++#else
++    unsigned short int mode;           /* Read/write permission.  */
++    unsigned short int __pad0;
++#endif
++
+     unsigned short int __seq;		/* Sequence number.  */
+     unsigned short int __pad1;
+     __syscall_ulong_t __glibc_reserved1;
+-- 
+2.11.1
+

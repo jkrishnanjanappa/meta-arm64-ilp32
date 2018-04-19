@@ -1,0 +1,149 @@
+From e2a7253a69ec700c4ad8fcddccd94d80fa70aeb0 Mon Sep 17 00:00:00 2001
+From: Yury Norov <ynorov@caviumnetworks.com>
+Date: Tue, 18 Jul 2017 23:59:18 +0300
+Subject: [PATCH 6/8] configure
+
+This is for reference only. The changes in this patch should be normally
+generated automatically, if '--enable-maintainer-mode' is passed in
+glibc configuration parameters, or manually, by:
+
+autoconf
+cd sysdeps/unix/sysv/linux/aarch64; autoconf -I../../../../..
+cd sysdeps/aarch64; autoconf -I../..
+
+Upstream-Status: Backport [https://github.com/norov/glibc/tree/ilp32-2.26]
+
+---
+ configure                                 | 14 +++++++++++++-
+ sysdeps/aarch64/configure                 | 15 +++++++++++----
+ sysdeps/unix/sysv/linux/aarch64/configure | 23 ++++++++++++++++++++---
+ 3 files changed, 44 insertions(+), 8 deletions(-)
+ mode change 100644 => 100755 sysdeps/aarch64/configure
+ mode change 100644 => 100755 sysdeps/unix/sysv/linux/aarch64/configure
+
+diff --git a/configure b/configure
+index d8e1c50e11..fa3abf1642 100755
+--- a/configure
++++ b/configure
+@@ -730,6 +730,7 @@ infodir
+ docdir
+ oldincludedir
+ includedir
++runstatedir
+ localstatedir
+ sharedstatedir
+ sysconfdir
+@@ -843,6 +844,7 @@ datadir='${datarootdir}'
+ sysconfdir='${prefix}/etc'
+ sharedstatedir='${prefix}/com'
+ localstatedir='${prefix}/var'
++runstatedir='${localstatedir}/run'
+ includedir='${prefix}/include'
+ oldincludedir='/usr/include'
+ docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
+@@ -1095,6 +1097,15 @@ do
+   | -silent | --silent | --silen | --sile | --sil)
+     silent=yes ;;
+ 
++  -runstatedir | --runstatedir | --runstatedi | --runstated \
++  | --runstate | --runstat | --runsta | --runst | --runs \
++  | --run | --ru | --r)
++    ac_prev=runstatedir ;;
++  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
++  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
++  | --run=* | --ru=* | --r=*)
++    runstatedir=$ac_optarg ;;
++
+   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
+     ac_prev=sbindir ;;
+   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
+@@ -1232,7 +1243,7 @@ fi
+ for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
+ 		datadir sysconfdir sharedstatedir localstatedir includedir \
+ 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
+-		libdir localedir mandir
++		libdir localedir mandir runstatedir
+ do
+   eval ac_val=\$$ac_var
+   # Remove trailing slashes.
+@@ -1385,6 +1396,7 @@ Fine tuning of the installation directories:
+   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
+   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
+   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
++  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
+   --libdir=DIR            object code libraries [EPREFIX/lib]
+   --includedir=DIR        C header files [PREFIX/include]
+   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
+diff --git a/sysdeps/aarch64/configure b/sysdeps/aarch64/configure
+old mode 100644
+new mode 100755
+index 5bd355a691..7dd56e8643
+--- a/sysdeps/aarch64/configure
++++ b/sysdeps/aarch64/configure
+@@ -163,12 +163,19 @@ rm -f conftest*
+ fi
+ { $as_echo "$as_me:${as_lineno-$LINENO}: result: $libc_cv_aarch64_be" >&5
+ $as_echo "$libc_cv_aarch64_be" >&6; }
++
++if test $aarch64_config_abi = ilp32; then
++  $as_echo "#define HAVE_AARCH64_ILP32 1" >>confdefs.h
++
++fi
++
+ if test $libc_cv_aarch64_be = yes; then
+   $as_echo "#define HAVE_AARCH64_BE 1" >>confdefs.h
+ 
+-  config_vars="$config_vars
+-default-abi = lp64_be"
++  libc_aarch64_be=_be
+ else
+-  config_vars="$config_vars
+-default-abi = lp64"
++  libc_aarch64_be=
+ fi
++
++config_vars="$config_vars
++default-abi = ${aarch64_config_abi}${libc_aarch64_be}"
+diff --git a/sysdeps/unix/sysv/linux/aarch64/configure b/sysdeps/unix/sysv/linux/aarch64/configure
+old mode 100644
+new mode 100755
+index f48472c5b6..cf1787f526
+--- a/sysdeps/unix/sysv/linux/aarch64/configure
++++ b/sysdeps/unix/sysv/linux/aarch64/configure
+@@ -1,9 +1,23 @@
+ # This file is generated from configure.ac by Autoconf.  DO NOT EDIT!
+  # Local configure fragment for sysdeps/unix/sysv/linux/aarch64.
+ 
+-arch_minimum_kernel=3.7.0
+-
+-test -n "$libc_cv_slibdir" ||
++if test $aarch64_config_abi = ilp32; then
++  arch_minimum_kernel=4.12.0
++  test -n "$libc_cv_slibdir" ||
++case "$prefix" in
++/usr | /usr/)
++  libc_cv_slibdir=/libilp32
++  libc_cv_rtlddir=/lib
++  if test "$libdir" = '${exec_prefix}/lib'; then
++    libdir='${exec_prefix}/libilp32';
++    # Locale data can be shared between 32-bit and 64-bit libraries.
++    libc_cv_complocaledir='${exec_prefix}/lib/locale'
++  fi
++  ;;
++esac
++else
++  arch_minimum_kernel=3.7.0
++  test -n "$libc_cv_slibdir" ||
+ case "$prefix" in
+ /usr | /usr/)
+   libc_cv_slibdir=/lib64
+@@ -15,3 +29,6 @@ case "$prefix" in
+   fi
+   ;;
+ esac
++fi
++
++ldd_rewrite_script=$dir/ldd-rewrite.sed
+-- 
+2.11.1
+

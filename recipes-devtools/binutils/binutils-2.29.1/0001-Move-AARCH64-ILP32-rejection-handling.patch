@@ -1,0 +1,86 @@
+From 4031fb158eac3cae80106f2f060e192790329c43 Mon Sep 17 00:00:00 2001
+From: "Jeremy A. Puhlman" <jpuhlman@mvista.com>
+Date: Wed, 18 Apr 2018 05:55:59 +0000
+Subject: [PATCH 1/2] Move AARCH64 ILP32 rejection handling
+
+Upstream-Status: Backport [https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;a=log;h=refs/heads/users/apinski/gdb-ilp32-gdbserver]
+
+---
+ bfd/cpu-aarch64.c   | 28 +++-------------------------
+ bfd/elfnn-aarch64.c | 17 ++++++++++++++++-
+ 2 files changed, 19 insertions(+), 26 deletions(-)
+
+diff --git a/bfd/cpu-aarch64.c b/bfd/cpu-aarch64.c
+index 7cb81f343c..8f65d804ed 100644
+--- a/bfd/cpu-aarch64.c
++++ b/bfd/cpu-aarch64.c
+@@ -34,31 +34,9 @@ compatible (const bfd_arch_info_type * a, const bfd_arch_info_type * b)
+   if (a->arch != b->arch)
+     return NULL;
+ 
+-  /* If a & b are for the same machine then all is well.  */
+-  if (a->mach == b->mach)
+-    return a;
+-
+-  /* Don't allow mixing ilp32 with lp64.  */
+-  if ((a->mach & bfd_mach_aarch64_ilp32) != (b->mach & bfd_mach_aarch64_ilp32))
+-    return NULL;
+-
+-  /* Otherwise if either a or b is the 'default' machine
+-     then it can be polymorphed into the other.  */
+-  if (a->the_default)
+-    return b;
+-
+-  if (b->the_default)
+-    return a;
+-
+-  /* So far all newer cores are
+-     supersets of previous cores.  */
+-  if (a->mach < b->mach)
+-    return b;
+-  else if (a->mach > b->mach)
+-    return a;
+-
+-  /* Never reached!  */
+-  return NULL;
++  /* Machine compatibility is checked in
++     elfNN_aarch64_merge_private_bfd_data.  */
++  return a;
+ }
+ 
+ static struct
+diff --git a/bfd/elfnn-aarch64.c b/bfd/elfnn-aarch64.c
+index 74beaf4f95..256a2d733e 100644
+--- a/bfd/elfnn-aarch64.c
++++ b/bfd/elfnn-aarch64.c
+@@ -6590,11 +6590,26 @@ elfNN_aarch64_merge_private_bfd_data (bfd *ibfd, struct bfd_link_info *info)
+ 
+   /* Check if we have the same endianess.  */
+   if (!_bfd_generic_verify_endian_match (ibfd, info))
+-    return FALSE;
++    {
++      (*_bfd_error_handler)
++	(_("%B: endianness incompatible with that of the selected emulation"),
++	 ibfd);
++      return FALSE;
++    }
+ 
+   if (!is_aarch64_elf (ibfd) || !is_aarch64_elf (obfd))
+     return TRUE;
+ 
++  /* Don't allow mixing ilp32 with lp64.  */
++  if ((bfd_get_arch_info (ibfd)->mach & bfd_mach_aarch64_ilp32)
++      != (bfd_get_arch_info (obfd)->mach & bfd_mach_aarch64_ilp32))
++    {
++      (*_bfd_error_handler)
++	(_("%B: ABI is incompatible with that of the selected emulation: \"%s\" != \"%s\""),
++	 ibfd, bfd_get_target (ibfd), bfd_get_target (obfd));
++      return FALSE;
++    }
++
+   /* The input BFD must have had its flags initialised.  */
+   /* The following seems bogus to me -- The flags are initialized in
+      the assembler but I don't think an elf_flags_init field is
+-- 
+2.11.1
+
