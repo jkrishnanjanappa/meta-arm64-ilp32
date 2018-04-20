@@ -1,0 +1,47 @@
+From c057c280cc4d3ba1b7edbed65e9eac588ced51b3 Mon Sep 17 00:00:00 2001
+From: Andrew Pinski <apinski@cavium.com>
+Date: Tue, 24 May 2016 03:04:38 +0300
+Subject: [PATCH 08/25] arm64: ensure the kernel is compiled for LP64
+
+The kernel needs to be compiled as a LP64 binary for ARM64, even when
+using a compiler that defaults to code-generation for the ILP32 ABI.
+Consequently, we need to explicitly pass '-mabi=lp64' (supported on
+gcc-4.9 and newer).
+
+Signed-off-by: Andrew Pinski <Andrew.Pinski@caviumnetworks.com>
+Signed-off-by: Philipp Tomsich <philipp.tomsich@theobroma-systems.com>
+Signed-off-by: Christoph Muellner <christoph.muellner@theobroma-systems.com>
+Signed-off-by: Yury Norov <ynorov@caviumnetworks.com>
+Reviewed-by: David Daney <ddaney@caviumnetworks.com>
+---
+ arch/arm64/Makefile | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm64/Makefile b/arch/arm64/Makefile
+index f839ecd..5ddfb31 100644
+--- a/arch/arm64/Makefile
++++ b/arch/arm64/Makefile
+@@ -50,15 +50,20 @@ KBUILD_CFLAGS	+= -fno-asynchronous-unwind-tables
+ KBUILD_CFLAGS	+= $(call cc-option, -mpc-relative-literal-loads)
+ KBUILD_AFLAGS	+= $(lseinstr) $(brokengasinst)
+ 
++KBUILD_CFLAGS	+= $(call cc-option,-mabi=lp64)
++KBUILD_AFLAGS	+= $(call cc-option,-mabi=lp64)
++
+ ifeq ($(CONFIG_CPU_BIG_ENDIAN), y)
+ KBUILD_CPPFLAGS	+= -mbig-endian
+ AS		+= -EB
+ LD		+= -EB
++LDFLAGS		+= -maarch64linuxb
+ UTS_MACHINE	:= aarch64_be
+ else
+ KBUILD_CPPFLAGS	+= -mlittle-endian
+ AS		+= -EL
+ LD		+= -EL
++LDFLAGS		+= -maarch64linux
+ UTS_MACHINE	:= aarch64
+ endif
+ 
+-- 
+2.6.4
+

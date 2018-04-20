@@ -1,0 +1,32 @@
+From 6eb9c79691e99adfa715969625d2bf8d21221fef Mon Sep 17 00:00:00 2001
+From: Catalin Marinas <catalin.marinas@arm.com>
+Date: Tue, 8 Aug 2017 11:22:50 +0100
+Subject: [PATCH 24/25] arm64: ilp32: Clear TIF_32BIT in mm->context.flags for
+ ILP32 tasks
+
+The TIF_32BIT flag in mm->context.flags is intended to mark an mm as
+belonging to an AArch32 task. ILP32 tasks are AArch64, therefore clear
+this bit.
+
+Fixes: 51cb5dff0f8a ("arm64: ilp32: introduce binfmt_ilp32.c")
+Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
+---
+ arch/arm64/kernel/binfmt_ilp32.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/kernel/binfmt_ilp32.c b/arch/arm64/kernel/binfmt_ilp32.c
+index bb31325..205ee3d 100644
+--- a/arch/arm64/kernel/binfmt_ilp32.c
++++ b/arch/arm64/kernel/binfmt_ilp32.c
+@@ -43,7 +43,7 @@
+ #undef SET_PERSONALITY
+ #define SET_PERSONALITY(ex)						\
+ do {									\
+-	set_bit(TIF_32BIT, &current->mm->context.flags);	\
++	clear_bit(TIF_32BIT, &current->mm->context.flags);		\
+ 	set_thread_flag(TIF_32BIT_AARCH64);				\
+ 	clear_thread_flag(TIF_32BIT);					\
+ } while (0)
+-- 
+2.6.4
+
