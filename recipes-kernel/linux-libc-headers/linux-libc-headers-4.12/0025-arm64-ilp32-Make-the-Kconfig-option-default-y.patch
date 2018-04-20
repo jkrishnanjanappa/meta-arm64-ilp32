@@ -1,0 +1,28 @@
+From 161da3d79f8b410ffdc5b57d8ee0b41db060cced Mon Sep 17 00:00:00 2001
+From: Catalin Marinas <catalin.marinas@arm.com>
+Date: Tue, 8 Aug 2017 11:30:10 +0100
+Subject: [PATCH 25/25] arm64: ilp32: Make the Kconfig option default y
+
+The intention of the ILP32 branches is to enable ILP32 by default. This
+default is to be revisited for upstream merging.
+
+Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
+---
+ arch/arm64/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index a81ad3e..b3402e1 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -1086,6 +1086,7 @@ config AARCH32_EL0
+ 
+ config ARM64_ILP32
+ 	bool "Kernel support for ILP32"
++	default y
+ 	help
+ 	  This option enables support for AArch64 ILP32 user space.  ILP32
+ 	  is an ABI where long and pointers are 32bits but it uses the AARCH64
+-- 
+2.6.4
+
