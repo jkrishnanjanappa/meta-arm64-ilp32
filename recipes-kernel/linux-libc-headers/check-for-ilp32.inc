@@ -1,7 +1,7 @@
 # arch64 and aarch64_ilp32 headers are already multilib ready
 # Make sure not to exit if ilp32 not in one of the active tunes.
 
-EXIT_FROM_MULTI="exit 0"
+EXIT_FROM_MULTI="return"
 python () {
     multilibs = d.getVar("MULTILIBS") or ""
     ilp32found=False

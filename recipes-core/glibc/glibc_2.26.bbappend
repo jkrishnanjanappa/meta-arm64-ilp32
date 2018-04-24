@@ -4,5 +4,5 @@ include glibc-2.26-ilp32.inc
 # FIXME: Should figure out if the alternate abi is ilp32 instead of doing it merely
 # On inclusion of the layer.
 do_install_armmultilib_prepend () {
-   exit 0
+   return 
 }
