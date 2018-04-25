@@ -29,8 +29,8 @@ ARMPKGSFX_ILP32 = "${@bb.utils.contains('TUNE_FEATURES', 'ilp32', '_ilp32', '', 
 
 PACKAGE_EXTRA_ARCHS_tune-aarch64 = "aarch64"
 PACKAGE_EXTRA_ARCHS_tune-aarch64_be = "aarch64_be"
-PACKAGE_EXTRA_ARCHS_tune-aarch64_ilp32 = "aarch64 aarch64_ilp32"
-PACKAGE_EXTRA_ARCHS_tune-aarch64_be_ilp32 = "aarch64_be aarch_be_ilp32"
+PACKAGE_EXTRA_ARCHS_tune-aarch64_ilp32 = "aarch64_ilp32"
+PACKAGE_EXTRA_ARCHS_tune-aarch64_be_ilp32 = "aarch64_be_ilp32"
 
 ARMPKGSFX_ENDIAN_64 = "${@bb.utils.contains('TUNE_FEATURES', 'bigendian', '_be', '', d)}"
 TUNE_ARCH_64 = "aarch64${ARMPKGSFX_ENDIAN_64}"
