@@ -8,7 +8,7 @@ MACHINEOVERRIDES .= "${@bb.utils.contains('TUNE_FEATURES', 'aarch64', ':aarch64'
 TUNEVALID[ilp32] = "Enable instructions for aarch64 32 bit mode"
 TUNE_CCARGS .= "${@bb.utils.contains("TUNE_FEATURES", "ilp32", " -mabi=ilp32", "", d)}"
 MACHINEOVERRIDES .= "${@bb.utils.contains("TUNE_FEATURES", "ilp32", ":aarchilp32", "" ,d)}"
-
+BASECANADIANEXTRAOS += "linux-gnuilp32"
 # Little Endian base configs
 AVAILTUNES += "aarch64 aarch64_be aarch64_ilp32 aarch64_be_ilp32"
 ARMPKGARCH_tune-aarch64 ?= "aarch64"
