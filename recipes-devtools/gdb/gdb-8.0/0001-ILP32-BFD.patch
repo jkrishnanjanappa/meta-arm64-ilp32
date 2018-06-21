@@ -17,71 +17,19 @@ bfd:
 	size and offset of ILP32 executables.
 	(_bfd_aarch64_elf_grok_psinfo):  Ditto.
 
+V2 Changes:
+	* cpu-aarch64.c (compatible):
+	Don't reject different mach or ILP32 here.
+	* elfnn-aarch64.c (elfNN_aarch64_merge_private_bfd_data):
+	Add an error message on why endianess is rejected.
+	Reject different ILP32/LP64 settings.
+
 Upstream-Status: Backport [https://sourceware.org/git/?p=binutils-gdb.git;a=shortlog;h=refs/heads/users/linaro/gdb-aarch64-ilp32]
 
+Signed-off-by: Andrew Pinski <apinski@cavium.com>
+Signed-off-by: Steve Ellcey  <sellcey@cavium.com>
+Signed-off-by: Manjunath Matti <mmatti@mvista.com>
 ---
- bfd/cpu-aarch64.c   |  7 ++-----
- bfd/elfnn-aarch64.c | 17 ++++++++++++++++-
- bfd/elfxx-aarch64.c | 43 ++++++++++++++++++++++++++++++++++++++-----
- 3 files changed, 56 insertions(+), 11 deletions(-)
-
-diff --git a/bfd/cpu-aarch64.c b/bfd/cpu-aarch64.c
-index 7cb81f343c..63fba48a9c 100644
---- a/bfd/cpu-aarch64.c
-+++ b/bfd/cpu-aarch64.c
-@@ -25,7 +25,8 @@
- 
- /* This routine is provided two arch_infos and works out which Aarch64
-    machine which would be compatible with both and returns a pointer
--   to its info structure.  */
-+   to its info structure.  ABI (ilp32 vs. lp64) and endianness compatibility
-+   are checked in elfNN_aarch64_merge_private_bfd_data.  */
- 
- static const bfd_arch_info_type *
- compatible (const bfd_arch_info_type * a, const bfd_arch_info_type * b)
-@@ -38,10 +39,6 @@ compatible (const bfd_arch_info_type * a, const bfd_arch_info_type * b)
-   if (a->mach == b->mach)
-     return a;
- 
--  /* Don't allow mixing ilp32 with lp64.  */
--  if ((a->mach & bfd_mach_aarch64_ilp32) != (b->mach & bfd_mach_aarch64_ilp32))
--    return NULL;
--
-   /* Otherwise if either a or b is the 'default' machine
-      then it can be polymorphed into the other.  */
-   if (a->the_default)
-diff --git a/bfd/elfnn-aarch64.c b/bfd/elfnn-aarch64.c
-index 23c881c51d..1eede2afe8 100644
---- a/bfd/elfnn-aarch64.c
-+++ b/bfd/elfnn-aarch64.c
-@@ -6591,11 +6591,26 @@ elfNN_aarch64_merge_private_bfd_data (bfd *ibfd, struct bfd_link_info *info)
- 
-   /* Check if we have the same endianess.  */
-   if (!_bfd_generic_verify_endian_match (ibfd, info))
--    return FALSE;
-+    {
-+      (*_bfd_error_handler)
-+	(_("%B: endianness incompatible with that of the selected emulation"),
-+	   ibfd);
-+      return FALSE;
-+    }
- 
-   if (!is_aarch64_elf (ibfd) || !is_aarch64_elf (obfd))
-     return TRUE;
- 
-+  /* Don't allow mixing ilp32 with lp64.  */
-+  if ((bfd_get_arch_info (ibfd)->mach & bfd_mach_aarch64_ilp32)
-+      != (bfd_get_arch_info (obfd)->mach & bfd_mach_aarch64_ilp32))
-+    {
-+      (*_bfd_error_handler)
-+	(_("%B: ABI is incompatible with that of the selected emulation: \"%s\" != \"%s\""),
-+	 ibfd, bfd_get_target (ibfd), bfd_get_target (obfd));
-+      return FALSE;
-+    }
-+
-   /* The input BFD must have had its flags initialised.  */
-   /* The following seems bogus to me -- The flags are initialized in
-      the assembler but I don't think an elf_flags_init field is
 diff --git a/bfd/elfxx-aarch64.c b/bfd/elfxx-aarch64.c
 index 10ee5fa99e..f52e0f117c 100644
 --- a/bfd/elfxx-aarch64.c
@@ -160,6 +108,72 @@ index 10ee5fa99e..f52e0f117c 100644
      }
  
    /* Note that for some reason, a spurious space is tacked
--- 
-2.11.1
-
+diff -Naurp gdb-8.0_org/bfd/cpu-aarch64.c gdb-8.0/bfd/cpu-aarch64.c
+--- gdb-8.0_org/bfd/cpu-aarch64.c	2017-06-04 21:21:26.000000000 +0530
++++ gdb-8.0/bfd/cpu-aarch64.c	2018-06-19 12:55:25.153939771 +0530
+@@ -34,31 +34,9 @@ compatible (const bfd_arch_info_type * a
+   if (a->arch != b->arch)
+     return NULL;
+ 
+-  /* If a & b are for the same machine then all is well.  */
+-  if (a->mach == b->mach)
+-    return a;
+-
+-  /* Don't allow mixing ilp32 with lp64.  */
+-  if ((a->mach & bfd_mach_aarch64_ilp32) != (b->mach & bfd_mach_aarch64_ilp32))
+-    return NULL;
+-
+-  /* Otherwise if either a or b is the 'default' machine
+-     then it can be polymorphed into the other.  */
+-  if (a->the_default)
+-    return b;
+-
+-  if (b->the_default)
+-    return a;
+-
+-  /* So far all newer cores are
+-     supersets of previous cores.  */
+-  if (a->mach < b->mach)
+-    return b;
+-  else if (a->mach > b->mach)
+-    return a;
+-
+-  /* Never reached!  */
+-  return NULL;
++  /* Machine compatibility is checked in
++     elfNN_aarch64_merge_private_bfd_data.  */
++  return a;
+ }
+ 
+ static struct
+diff -Naurp gdb-8.0_org/bfd/elfnn-aarch64.c gdb-8.0/bfd/elfnn-aarch64.c
+--- gdb-8.0_org/bfd/elfnn-aarch64.c	2017-06-04 21:24:54.000000000 +0530
++++ gdb-8.0/bfd/elfnn-aarch64.c	2018-06-19 12:55:25.157939781 +0530
+@@ -6600,11 +6600,26 @@ elfNN_aarch64_merge_private_bfd_data (bf
+ 
+   /* Check if we have the same endianess.  */
+   if (!_bfd_generic_verify_endian_match (ibfd, info))
+-    return FALSE;
++    {
++      (*_bfd_error_handler)
++	(_("%B: endianness incompatible with that of the selected emulation"),
++	 ibfd);
++      return FALSE;
++    }
+ 
+   if (!is_aarch64_elf (ibfd) || !is_aarch64_elf (obfd))
+     return TRUE;
+ 
++  /* Don't allow mixing ilp32 with lp64.  */
++  if ((bfd_get_arch_info (ibfd)->mach & bfd_mach_aarch64_ilp32)
++      != (bfd_get_arch_info (obfd)->mach & bfd_mach_aarch64_ilp32))
++    {
++      (*_bfd_error_handler)
++	(_("%B: ABI is incompatible with that of the selected emulation: \"%s\" != \"%s\""),
++	 ibfd, bfd_get_target (ibfd), bfd_get_target (obfd));
++      return FALSE;
++    }
++
+   /* The input BFD must have had its flags initialised.  */
+   /* The following seems bogus to me -- The flags are initialized in
+      the assembler but I don't think an elf_flags_init field is
