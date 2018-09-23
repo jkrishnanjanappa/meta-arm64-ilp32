@@ -15,6 +15,10 @@ aarch64.c to fix gdb support in ILP32 mode.
 	size and offset of ILP32 executables.
 	(_bfd_aarch64_elf_grok_psinfo):Ditto.
 
+V2 changes:
+	* elfxx-aarch64.c (_bfd_aarch64_elf_grok_prstatus): Correct
+	the offset for ilp32 from 32 to 24.	
+
 Signed-off-by: Manjunath Matti <mmatti@mvista.com>
 
 Upstream-Status: Submitted [https://sourceware.org/ml/binutils/2017-03/msg00075.html]
@@ -41,7 +45,7 @@ index 10ee5fa99e..932fbdbc6b 100644
  	/* pr_pid */
 -	elf_tdata (abfd)->core->lwpid
 -	  = bfd_get_32 (abfd, note->descdata + 32);
-+	elf_tdata (abfd)->core->lwpid = bfd_get_32 (abfd, note->descdata + 32);
++	elf_tdata (abfd)->core->lwpid = bfd_get_32 (abfd, note->descdata + 24);
 +
 +	/* pr_reg */
 +	offset = 72;

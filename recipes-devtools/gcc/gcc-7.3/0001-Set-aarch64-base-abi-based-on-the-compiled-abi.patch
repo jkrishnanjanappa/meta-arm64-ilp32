@@ -1,0 +1,27 @@
+From 5fee3ac69083448df2978292c0d22a0a8097be6a Mon Sep 17 00:00:00 2001
+From: Jeremy Puhlman <jpuhlman@mvista.com>
+Date: Fri, 22 Jun 2018 07:17:51 +0000
+Subject: [PATCH] Set aarch64 base abi based on the compiled abi
+
+---
+ gcc/config/aarch64/biarchlp64.h | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/gcc/config/aarch64/biarchlp64.h b/gcc/config/aarch64/biarchlp64.h
+index c3d5ac5..d6c879b 100644
+--- a/gcc/config/aarch64/biarchlp64.h
++++ b/gcc/config/aarch64/biarchlp64.h
+@@ -25,5 +25,10 @@ a copy of the GCC Runtime Library Exception along with this program;
+ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ <http://www.gnu.org/licenses/>.  */
+ 
++#ifdef __ILP32__
++#define AARCH64_ABI_DEFAULT AARCH64_ABI_ILP32
++#define TARGET_DATA_MODEL 2
++#else
+ #define AARCH64_ABI_DEFAULT AARCH64_ABI_LP64
+ #define TARGET_DATA_MODEL 1
++#endif
+-- 
+2.13.3
+
