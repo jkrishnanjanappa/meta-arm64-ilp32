@@ -1,6 +1,6 @@
 FILESEXTRAPATHS_prepend := "${THISDIR}/glibc-2.26:"
 
-SRC_URI += " \
+SRC_URI_append_linux-gnuilp32 += " \
     file://0001-aarch64-ilp32-final.patch \
     file://0002-aarch64-ilp32-abilist.patch \
     file://0003-math.patch.patch \
